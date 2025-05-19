@@ -1,0 +1,27 @@
+[project]
+name = "api-server"
+version = "1.0.0"
+readme = "README.md"
+requires-python = ">=3.12.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "pydantic[email]",
+    "httpx",
+    "python-dotenv",
+    "alembic",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "spotipy",
+    "pydantic-settings",
+    "python-multipart",
+    "psycopg2-binary",
+]
+
+[dependency-groups]
+dev = [
+    "ipython",
+    "pytest",
+    "mypy"
+]

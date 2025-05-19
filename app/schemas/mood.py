@@ -1,0 +1,35 @@
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel
+
+
+class MoodBase(BaseModel):
+    happy_score: float
+    sad_score: float
+    angry_score: float
+    relaxed_score: float
+    notes: Optional[str] = None
+
+
+class MoodCreate(MoodBase):
+    pass
+
+
+class MoodRecord(MoodBase):
+    id: int
+    user_id: int
+    recorded_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class MoodStatistics(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    records: List[MoodRecord]
+    average_happy: float
+    average_sad: float
+    average_angry: float
+    average_relaxed: float
