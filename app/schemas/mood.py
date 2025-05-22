@@ -5,10 +5,10 @@ from pydantic import BaseModel
 
 
 class MoodBase(BaseModel):
-    happy_score: float
-    sad_score: float
-    angry_score: float
-    relaxed_score: float
+    happy: float
+    sad: float
+    angry: float
+    relaxed: float
     notes: Optional[str] = None
 
 
@@ -29,7 +29,3 @@ class MoodStatistics(BaseModel):
     start_date: datetime
     end_date: datetime
     records: List[MoodRecord]
-    average_happy: float
-    average_sad: float
-    average_angry: float
-    average_relaxed: float

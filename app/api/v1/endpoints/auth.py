@@ -10,11 +10,11 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate
-from app.services.jwt import (
-    create_access_token,
-    get_password_hash,
-    verify_password,
-)
+from app.services.jwt import create_access_token, get_password_hash, verify_password
+
+from jose import JWTError, jwt
+from app.services.jwt import ALGORITHM
+
 
 router = APIRouter()
 
@@ -22,7 +22,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User:
-    """Authenticate a user with email and password"""
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return None
@@ -34,17 +33,12 @@ def authenticate_user(db: Session, email: str, password: str) -> User:
 def get_current_user(
     db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
-    """Get current user from token"""
-    from jose import JWTError, jwt
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        from app.services.jwt import ALGORITHM
-
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = int(payload.get("sub"))
         if user_id is None:
@@ -71,7 +65,6 @@ def register_new_user(
             status_code=400, detail="The user with this email already exists."
         )
 
-    # Create new user
     db_user = User(
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),

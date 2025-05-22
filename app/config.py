@@ -1,4 +1,3 @@
-import os
 from typing import List, Optional, Union
 
 from pydantic import field_validator
@@ -37,6 +36,7 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:4200"
 
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
 
 settings = Settings()

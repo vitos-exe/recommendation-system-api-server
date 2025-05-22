@@ -1,12 +1,19 @@
 import uuid
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
+import datetime
 
 import httpx
 
 from app.config import settings
 from app.schemas.spotify import SpotifyTrack
-from app.utils.errors import SpotifyDeviceNotFoundError
+from app.utils.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    ExternalAPIError,
+    NotFoundError,
+    ValidationError,
+)
 
 
 def get_auth_url() -> Dict[str, str]:
@@ -83,15 +90,27 @@ async def refresh_token(refresh_token: str) -> Dict[str, str]:
 
 
 async def get_recently_played_tracks(
-    access_token: str, limit: int = 20, time_range: str = "short_term"
+    access_token: str, limit: int = 20, time_limit_minutes: Optional[int] = None
 ) -> List[SpotifyTrack]:
     """Get user's recently played tracks"""
     headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"limit": limit}
+
+    if time_limit_minutes:
+        after_timestamp = int(
+            (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(minutes=time_limit_minutes)
+            ).timestamp()
+            * 1000
+        )
+        params["after"] = after_timestamp
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"https://api.spotify.com/v1/me/player/recently-played?limit={limit}",
+            "https://api.spotify.com/v1/me/player/recently-played",
             headers=headers,
+            params=params,
         )
 
         if response.status_code != 200:
@@ -103,6 +122,10 @@ async def get_recently_played_tracks(
         for item in data.get("items", []):
             track = item.get("track", {})
             artists = [artist["name"] for artist in track.get("artists", [])]
+            played_at_str = item.get("played_at")
+            played_at = None
+            if played_at_str:
+                played_at = datetime.datetime.fromisoformat(played_at_str.replace("Z", "+00:00"))
 
             tracks.append(
                 SpotifyTrack(
@@ -110,6 +133,8 @@ async def get_recently_played_tracks(
                     name=track.get("name", ""),
                     artist=", ".join(artists),
                     album=track.get("album", {}).get("name", ""),
+                    uri=track.get("uri", ""),
+                    played_at=played_at,
                     preview_url=track.get("preview_url"),
                 )
             )
@@ -117,25 +142,19 @@ async def get_recently_played_tracks(
         return tracks
 
 
-async def add_track_to_queue(access_token: str, track_uri: str) -> bool:
+async def add_track_to_queue(access_token: str, track_uri: str) -> None:
     """Add a track to the user's queue"""
     headers = {"Authorization": f"Bearer {access_token}"}
-
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}",
             headers=headers,
         )
-        
-        if response.status_code == 404:
-            error_details = response.json()
-            if error_details.get("error", {}).get("reason") == "NO_ACTIVE_DEVICE":
-                raise SpotifyDeviceNotFoundError()
+        response.raise_for_status()
 
-        return response.is_success
-
-
-async def search_track(access_token: str, track_name: str, artist_name: str) -> Optional[str]:
+async def search_track(
+    access_token: str, track_name: str, artist_name: str
+) -> Optional[str]:
     """Search for a track on Spotify by name and artist and return its URI."""
     headers = {"Authorization": f"Bearer {access_token}"}
     params = {
@@ -147,13 +166,11 @@ async def search_track(access_token: str, track_name: str, artist_name: str) -> 
         response = await client.get(
             "https://api.spotify.com/v1/search", headers=headers, params=params
         )
-        if response.status_code != 200:
-            # Consider logging the error response.text for debugging
-            return None
-        
+        response.raise_for_status()
+
         data = response.json()
         tracks = data.get("tracks", {}).get("items", [])
         if not tracks:
             return None
-        
+
         return tracks[0].get("uri")

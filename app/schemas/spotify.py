@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -20,6 +21,8 @@ class SpotifyTrack(BaseModel):
     name: str
     artist: str
     album: str
+    uri: Optional[str] = None
+    played_at: Optional[datetime] = None
     preview_url: Optional[str] = None
 
 

@@ -3,88 +3,40 @@ from typing import Dict, List
 import httpx
 
 from app.config import settings
-from app.schemas.recommendation import RecommendedSong, MoodPrediction
+from app.schemas.mood import MoodBase
+from app.schemas.recommendation import RecommendedSong
 
 
 async def predict_mood_from_lyrics(
     lyrics: str, artist: str, title: str
-) -> MoodPrediction:
-    """
-    Use the AI API to predict the emotional mood from song lyrics
-
-    Returns a dictionary with probabilities for each emotion:
-    {
-        "happy": 0.7,
-        "sad": 0.1,
-        "angry": 0.05,
-        "relaxed": 0.15
-    }
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{settings.AI_API_URL}/",  # Changed endpoint
-                json={"lyrics": lyrics, "artist": artist, "title": title},
-            )
-
-            if response.status_code != 200:
-                print(f"Error from AI API: {response.text}")
-                # Return default values if the API call fails
-                return MoodPrediction(happy=0.25, sad=0.25, angry=0.25, relaxed=0.25)
-
-            data = response.json()
-            return MoodPrediction(**data)  # Changed: assume response is the mood probability dict
-    except Exception as e:
-        print(f"Error predicting mood: {e}")
-        # Return default values if the API call fails
-        return MoodPrediction(happy=0.25, sad=0.25, angry=0.25, relaxed=0.25)
+) -> MoodBase:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{settings.AI_API_URL}/",
+            params={"save": "True"},
+            json={"lyrics": lyrics, "artist": artist, "title": title},
+        )
+        response.raise_for_status()
+        return MoodBase(
+            **response.json()
+        )
 
 
 async def get_recommendations_for_mood(
-    mood_vector: Dict[str, float], limit: int = 5
+    mood: MoodBase, limit: int = 5
 ) -> List[RecommendedSong]:
-    """
-    Get song recommendations based on a mood vector
+    mood_dict = {
+        "happy": mood.happy,
+        "sad": mood.sad,
+        "angry": mood.angry,
+        "relaxed": mood.relaxed,
+    }
 
-    The AI service should return songs from its vector database that match the given mood
-    Note: The 'limit' parameter is part of this client function, but the current AI service
-    endpoint (/closest) is configured to return a fixed number of results (n=1).
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{settings.AI_API_URL}/closest",
-                json=mood_vector,
-            )
-
-            if response.status_code != 200:
-                print(f"Error from AI API: {response.text}")
-                return []
-
-            data = response.json()
-            return [RecommendedSong(**item) for item in data]
-    except Exception as e:
-        print(f"Error getting recommendations: {e}")
-        return []
-
-
-def average_mood_vectors(mood_vectors: List[MoodPrediction]) -> Dict[str, float]:
-    """
-    Calculate the average mood vector from a list of mood vectors
-    """
-    if not mood_vectors:
-        return {"happy": 0.25, "sad": 0.25, "angry": 0.25, "relaxed": 0.25}
-
-    result = {"happy": 0.0, "sad": 0.0, "angry": 0.0, "relaxed": 0.0}
-    count = len(mood_vectors)
-
-    for vector in mood_vectors:
-        result["happy"] += vector.happy
-        result["sad"] += vector.sad
-        result["angry"] += vector.angry
-        result["relaxed"] += vector.relaxed
-
-    for mood in result:
-        result[mood] /= count
-
-    return result
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{settings.AI_API_URL}/closest",
+            params={"limit": limit},
+            json=mood_dict,
+        )
+        response.raise_for_status()
+        return [RecommendedSong(**item) for item in response.json()]

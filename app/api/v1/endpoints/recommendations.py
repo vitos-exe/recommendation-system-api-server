@@ -1,88 +1,87 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.models.mood_record import MoodRecord
+from app.schemas.mood import MoodBase
 from app.schemas.recommendation import RecommendedSong
-from app.services.mood_client import get_recommendations_for_mood, predict_mood_from_lyrics
 from app.services.lyrics_client import get_lyrics_for_song_async
-from app.services.spotify_client import add_track_to_queue, get_recently_played_tracks, search_track
+from app.services.mood_client import (
+    get_recommendations_for_mood,
+    predict_mood_from_lyrics,
+)
+from app.services.spotify_client import (
+    add_track_to_queue,
+    get_recently_played_tracks,
+    search_track,
+)
+from app.api.v1.endpoints.mood import get_current_mood
 
 router = APIRouter()
 
 
-@router.get("/analyze-recent-tracks", response_model=Dict[str, Any])
+@router.get("/analyze-recent-tracks", status_code=status.HTTP_204_NO_CONTENT)
 async def analyze_recent_tracks(
     limit: int = Query(10, ge=1, le=50),
+    time_limit_minutes: int = Query(30, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Any:
-    """Analyze user's recently played tracks to determine mood profile"""
+) -> None:
+    """Analyze user's recently played tracks to determine mood profile and store individual moods."""
     if not current_user.spotify_access_token:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Not authenticated with Spotify. Please connect your Spotify account first.",
         )
 
-    try:
-        tracks = await get_recently_played_tracks(
-            access_token=current_user.spotify_access_token, limit=limit
+    tracks = await get_recently_played_tracks(
+        access_token=current_user.spotify_access_token,
+        limit=limit,
+        time_limit_minutes=time_limit_minutes,
+    )
+
+    if not tracks:
+        return
+
+    for track in tracks:
+        existing_record = (
+            db.query(MoodRecord)
+            .filter_by(
+                user_id=current_user.id,
+                spotify_track_id=track.id,
+                spotify_played_at=track.played_at,
+            )
+            .first()
         )
+        if existing_record:
+            continue  # Skip if already processed
 
-        mood_results = []
-        for track in tracks:
-            lyrics = await get_lyrics_for_song_async(track.name, track.artist)
+        lyrics = await get_lyrics_for_song_async(track.name, track.artist)
 
-            if lyrics:
-                mood = await predict_mood_from_lyrics(lyrics, track.artist, track.name)
-                mood_results.append({"track": track, "mood": mood})
-
-        if not mood_results:
-            return {"message": "No mood data could be generated from recent tracks"}
-
-        avg_happy = sum(r["mood"].happy for r in mood_results) / len(mood_results)
-        avg_sad = sum(r["mood"].sad for r in mood_results) / len(mood_results)
-        avg_angry = sum(r["mood"].angry for r in mood_results) / len(mood_results)
-        avg_relaxed = sum(r["mood"].relaxed for r in mood_results) / len(
-            mood_results
-        )
-
-        avg_mood = {
-            "happy": avg_happy,
-            "sad": avg_sad,
-            "angry": avg_angry,
-            "relaxed": avg_relaxed,
-        }
-
-        from datetime import datetime
-        from app.models.mood_record import MoodRecord
-
-        db_mood = MoodRecord(
-            user_id=current_user.id,
-            happy_score=avg_happy,
-            sad_score=avg_sad,
-            angry_score=avg_angry,
-            relaxed_score=avg_relaxed,
-            notes="Generated from recent listening history",
-            recorded_at=datetime.utcnow(),
-        )
-
-        db.add(db_mood)
-        db.commit()
-
-        return {
-            "tracks_analyzed": len(mood_results),
-            "average_mood": avg_mood,
-            "detailed_results": mood_results,
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Error analyzing recent tracks: {str(e)}"
-        )
+        if lyrics:
+            mood_prediction = await predict_mood_from_lyrics(
+                lyrics, track.artist, track.name
+            )
+            if mood_prediction:
+                db_mood_record = MoodRecord(
+                    user_id=current_user.id,
+                    happy=mood_prediction.happy,
+                    sad=mood_prediction.sad,
+                    angry=mood_prediction.angry,
+                    relaxed=mood_prediction.relaxed,
+                    notes=f"Mood generated from track: {track.name} by {track.artist}",
+                    recorded_at=datetime.utcnow(),
+                    spotify_track_id=track.id,  # Store Spotify track ID
+                    spotify_played_at=track.played_at,  # Store Spotify played_at timestamp
+                )
+                db.add(db_mood_record)
+                
+    db.commit()
 
 
 @router.get("/get-recommendations", response_model=List[RecommendedSong])
@@ -96,79 +95,15 @@ async def get_music_recommendations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    """Get music recommendations based on mood"""
-    try:
-        # Determine which mood vector to use
-        if use_current_mood:
-            # Use the user's current mood from records
-            from app.api.v1.endpoints.mood import get_current_mood
-
-            mood_vector = get_current_mood(days=1, db=db, current_user=current_user)
-        else:
-            # Use the provided custom mood
-            if happy is None or sad is None or angry is None or relaxed is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="When not using current mood, all mood parameters (happy, sad, angry, relaxed) must be provided",
-                )
-
-            mood_vector = {
-                "happy": happy,
-                "sad": sad,
-                "angry": angry,
-                "relaxed": relaxed,
-            }
-
-        # Get song recommendations from AI service
-        recommendations = await get_recommendations_for_mood(mood_vector, limit)
-
-        if not recommendations:
+    target_mood: MoodBase
+    if use_current_mood:
+        current_mood_dict = get_current_mood(days=1, db=db, current_user=current_user)
+        target_mood = MoodBase(**current_mood_dict)
+    else:
+        if happy is None or sad is None or angry is None or relaxed is None:
             raise HTTPException(
-                status_code=404, detail="No recommendations found for the given mood"
+                status_code=400,
+                detail="When not using current mood, all mood parameters (happy, sad, angry, relaxed) must be provided",
             )
-
-        return recommendations
-
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Error getting recommendations: {str(e)}"
-        )
-
-
-@router.post("/queue-song")
-async def queue_song_in_spotify(
-    song: RecommendedSong,
-    current_user: User = Depends(get_current_user),
-) -> Any:
-    """Queue a recommended song in the user's Spotify player"""
-    if not current_user.spotify_access_token:
-        raise HTTPException(
-            status_code=400,
-            detail="Not authenticated with Spotify. Please connect your Spotify account first.",
-        )
-
-    try:
-        track_uri = await search_track(
-            current_user.spotify_access_token, song.title, song.artist
-        )
-
-        if not track_uri:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Song '{song.title}' by '{song.artist}' not found on Spotify."
-            )
-
-        success = await add_track_to_queue(current_user.spotify_access_token, track_uri)
-
-        if success:
-            return {"message": "Track added to queue successfully"}
-        else:
-            raise HTTPException(status_code=400, detail="Failed to add track to queue")
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Error adding track to queue: {str(e)}"
-        )
+        target_mood = MoodBase(happy=happy, sad=sad, angry=angry, relaxed=relaxed)
+    return await get_recommendations_for_mood(target_mood, limit)

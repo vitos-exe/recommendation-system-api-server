@@ -9,6 +9,8 @@ from app.models.user import User
 from app.schemas.user import User as UserSchema
 from app.schemas.user import UserUpdate
 
+from app.services.jwt import get_password_hash
+
 router = APIRouter()
 
 
@@ -16,7 +18,6 @@ router = APIRouter()
 def get_user_me(
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    """Get current user profile"""
     return current_user
 
 
@@ -26,10 +27,7 @@ def update_user_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    """Update current user profile"""
     if user_in.password:
-        from app.services.auth.jwt import get_password_hash
-
         current_user.hashed_password = get_password_hash(user_in.password)
     if user_in.email:
         current_user.email = user_in.email
