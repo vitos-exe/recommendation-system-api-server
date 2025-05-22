@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.endpoints.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.schemas.recommendation import RecommendedSong
 from app.services.mood_client import get_recommendations_for_mood, predict_mood_from_lyrics
 from app.services.lyrics_client import get_lyrics_for_song_async
 from app.services.spotify_client import add_track_to_queue, get_recently_played_tracks
@@ -92,7 +93,7 @@ async def analyze_recent_tracks(
         )
 
 
-@router.get("/get-recommendations", response_model=List[Dict[str, Any]])
+@router.get("/get-recommendations", response_model=List[RecommendedSong])
 async def get_music_recommendations(
     limit: int = Query(5, ge=1, le=10),
     use_current_mood: bool = Query(True),

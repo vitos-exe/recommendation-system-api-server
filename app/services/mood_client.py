@@ -3,11 +3,12 @@ from typing import Dict, List
 import httpx
 
 from app.config import settings
+from app.schemas.recommendation import RecommendedSong, MoodPrediction
 
 
 async def predict_mood_from_lyrics(
     lyrics: str, artist: str, title: str
-) -> Dict[str, float]:
+) -> MoodPrediction:
     """
     Use the AI API to predict the emotional mood from song lyrics
 
@@ -29,19 +30,19 @@ async def predict_mood_from_lyrics(
             if response.status_code != 200:
                 print(f"Error from AI API: {response.text}")
                 # Return default values if the API call fails
-                return {"happy": 0.25, "sad": 0.25, "angry": 0.25, "relaxed": 0.25}
+                return MoodPrediction(happy=0.25, sad=0.25, angry=0.25, relaxed=0.25)
 
             data = response.json()
-            return data  # Changed: assume response is the mood probability dict
+            return MoodPrediction(**data)  # Changed: assume response is the mood probability dict
     except Exception as e:
         print(f"Error predicting mood: {e}")
         # Return default values if the API call fails
-        return {"happy": 0.25, "sad": 0.25, "angry": 0.25, "relaxed": 0.25}
+        return MoodPrediction(happy=0.25, sad=0.25, angry=0.25, relaxed=0.25)
 
 
 async def get_recommendations_for_mood(
     mood_vector: Dict[str, float], limit: int = 5
-) -> List[Dict[str, str]]:
+) -> List[RecommendedSong]:
     """
     Get song recommendations based on a mood vector
 
@@ -52,8 +53,8 @@ async def get_recommendations_for_mood(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.AI_API_URL}/closest",  # Changed endpoint
-                json=mood_vector,  # Changed: send mood_vector directly
+                f"{settings.AI_API_URL}/closest",
+                json=mood_vector,
             )
 
             if response.status_code != 200:
@@ -61,13 +62,13 @@ async def get_recommendations_for_mood(
                 return []
 
             data = response.json()
-            return data  # Changed: assume response is the list of recommendations
+            return [RecommendedSong(**item) for item in data]
     except Exception as e:
         print(f"Error getting recommendations: {e}")
         return []
 
 
-def average_mood_vectors(mood_vectors: List[Dict[str, float]]) -> Dict[str, float]:
+def average_mood_vectors(mood_vectors: List[MoodPrediction]) -> Dict[str, float]:
     """
     Calculate the average mood vector from a list of mood vectors
     """
@@ -78,8 +79,10 @@ def average_mood_vectors(mood_vectors: List[Dict[str, float]]) -> Dict[str, floa
     count = len(mood_vectors)
 
     for vector in mood_vectors:
-        for mood, value in vector.items():
-            result[mood] += value
+        result["happy"] += vector.happy
+        result["sad"] += vector.sad
+        result["angry"] += vector.angry
+        result["relaxed"] += vector.relaxed
 
     for mood in result:
         result[mood] /= count

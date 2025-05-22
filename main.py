@@ -7,6 +7,6 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         log_level="debug",
-        ssl_keyfile="./key.pem",  # Path to your key file
-        ssl_certfile="./cert.pem",  # Path to your certificate file
+        ssl_keyfile="./localhost-key.pem",
+        ssl_certfile="./localhost.pem",
     )

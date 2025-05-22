@@ -66,7 +66,7 @@ async def spotify_callback(
         db.commit()
 
         # Redirect to frontend home page
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/home?spotify_auth=success")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/main/home?spotify_auth=success")
     except Exception as e:
         # Redirect to frontend with error query param
         error_message = f"Error authenticating with Spotify: {str(e)}"
