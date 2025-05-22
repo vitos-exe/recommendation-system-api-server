@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -9,7 +9,7 @@ from app.schemas.spotify import SpotifyTrack
 
 
 def get_auth_url() -> Dict[str, str]:
-    """Generate a Spotify authentication URL"""
+    """Generate a Spotify authentication URL and state"""
     # Generate a random state to prevent CSRF
     state = str(uuid.uuid4())
 
@@ -28,7 +28,7 @@ def get_auth_url() -> Dict[str, str]:
     return {"auth_url": auth_url, "state": state}
 
 
-async def exchange_code_for_token(code: str) -> Dict[str, str]:
+async def exchange_code_for_token(code: str) -> Dict[str, Any]:
     """Exchange authorization code for access token"""
     async with httpx.AsyncClient() as client:
         response = await client.post(

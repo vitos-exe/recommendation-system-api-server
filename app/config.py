@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "secret-key"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
 
-    BACKEND_CORS_ORIGINS: List[str] = []
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:4200"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     SPOTIFY_REDIRECT_URI: Optional[str] = None
 
     AI_API_URL: Optional[str] = None
+
+    FRONTEND_URL: str = "http://localhost:4200"  # Add this line
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 
