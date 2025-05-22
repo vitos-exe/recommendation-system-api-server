@@ -38,3 +38,10 @@ class ExternalAPIError(HTTPException):
 
     def __init__(self, detail: str = "Error communicating with external service"):
         super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+
+
+class SpotifyDeviceNotFoundError(HTTPException):
+    """Spotify active device not found error"""
+
+    def __init__(self, detail: str = "Spotify active device not found. Please start playback on a Spotify device."):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)

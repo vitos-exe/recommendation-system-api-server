@@ -9,7 +9,7 @@ from app.models.user import User
 from app.schemas.recommendation import RecommendedSong
 from app.services.mood_client import get_recommendations_for_mood, predict_mood_from_lyrics
 from app.services.lyrics_client import get_lyrics_for_song_async
-from app.services.spotify_client import add_track_to_queue, get_recently_played_tracks
+from app.services.spotify_client import add_track_to_queue, get_recently_played_tracks, search_track
 
 router = APIRouter()
 
@@ -28,31 +28,25 @@ async def analyze_recent_tracks(
         )
 
     try:
-        # Get recently played tracks
         tracks = await get_recently_played_tracks(
             access_token=current_user.spotify_access_token, limit=limit
         )
 
-        # Process each track to get lyrics and predict mood
         mood_results = []
-
         for track in tracks:
-            # Get lyrics for the track
             lyrics = await get_lyrics_for_song_async(track.name, track.artist)
 
             if lyrics:
-                # Predict mood from lyrics
                 mood = await predict_mood_from_lyrics(lyrics, track.artist, track.name)
                 mood_results.append({"track": track, "mood": mood})
 
-        # Calculate average mood vector
         if not mood_results:
             return {"message": "No mood data could be generated from recent tracks"}
 
-        avg_happy = sum(r["mood"]["happy"] for r in mood_results) / len(mood_results)
-        avg_sad = sum(r["mood"]["sad"] for r in mood_results) / len(mood_results)
-        avg_angry = sum(r["mood"]["angry"] for r in mood_results) / len(mood_results)
-        avg_relaxed = sum(r["mood"]["relaxed"] for r in mood_results) / len(
+        avg_happy = sum(r["mood"].happy for r in mood_results) / len(mood_results)
+        avg_sad = sum(r["mood"].sad for r in mood_results) / len(mood_results)
+        avg_angry = sum(r["mood"].angry for r in mood_results) / len(mood_results)
+        avg_relaxed = sum(r["mood"].relaxed for r in mood_results) / len(
             mood_results
         )
 
@@ -63,9 +57,7 @@ async def analyze_recent_tracks(
             "relaxed": avg_relaxed,
         }
 
-        # Store the mood data in the database
         from datetime import datetime
-
         from app.models.mood_record import MoodRecord
 
         db_mood = MoodRecord(
@@ -147,7 +139,7 @@ async def get_music_recommendations(
 
 @router.post("/queue-song")
 async def queue_song_in_spotify(
-    track_id: str,
+    song: RecommendedSong,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """Queue a recommended song in the user's Spotify player"""
@@ -158,13 +150,24 @@ async def queue_song_in_spotify(
         )
 
     try:
-        track_uri = f"spotify:track:{track_id}"
+        track_uri = await search_track(
+            current_user.spotify_access_token, song.title, song.artist
+        )
+
+        if not track_uri:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Song '{song.title}' by '{song.artist}' not found on Spotify."
+            )
+
         success = await add_track_to_queue(current_user.spotify_access_token, track_uri)
 
         if success:
             return {"message": "Track added to queue successfully"}
         else:
             raise HTTPException(status_code=400, detail="Failed to add track to queue")
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=f"Error adding track to queue: {str(e)}"

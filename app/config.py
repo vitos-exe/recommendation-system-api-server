@@ -33,9 +33,9 @@ class Settings(BaseSettings):
     SPOTIFY_CLIENT_SECRET: Optional[str] = None
     SPOTIFY_REDIRECT_URI: Optional[str] = None
 
-    AI_API_URL: Optional[str] = None
+    AI_API_URL: str = "http://localhost:5000"
 
-    FRONTEND_URL: str = "http://localhost:4200"  # Add this line
+    FRONTEND_URL: str = "http://localhost:4200"
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 

@@ -1,11 +1,12 @@
 import uuid
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from urllib.parse import urlencode
 
 import httpx
 
 from app.config import settings
 from app.schemas.spotify import SpotifyTrack
+from app.utils.errors import SpotifyDeviceNotFoundError
 
 
 def get_auth_url() -> Dict[str, str]:
@@ -125,5 +126,34 @@ async def add_track_to_queue(access_token: str, track_uri: str) -> bool:
             f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}",
             headers=headers,
         )
+        
+        if response.status_code == 404:
+            error_details = response.json()
+            if error_details.get("error", {}).get("reason") == "NO_ACTIVE_DEVICE":
+                raise SpotifyDeviceNotFoundError()
 
-        return response.status_code == 204
+        return response.is_success
+
+
+async def search_track(access_token: str, track_name: str, artist_name: str) -> Optional[str]:
+    """Search for a track on Spotify by name and artist and return its URI."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {
+        "q": f"track:{track_name} artist:{artist_name}",
+        "type": "track",
+        "limit": 1,
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.spotify.com/v1/search", headers=headers, params=params
+        )
+        if response.status_code != 200:
+            # Consider logging the error response.text for debugging
+            return None
+        
+        data = response.json()
+        tracks = data.get("tracks", {}).get("items", [])
+        if not tracks:
+            return None
+        
+        return tracks[0].get("uri")

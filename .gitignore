@@ -13,3 +13,5 @@ wheels/
 *.pem
 *.db
 *.env*
+
+.env*
