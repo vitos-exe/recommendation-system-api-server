@@ -9,9 +9,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.mood import MoodBase
 from app.schemas.recommendation import RecommendedSong
-from app.services.mood_client import (
-    get_recommendations_for_mood,
-)
+from app.services.mood_client import get_recommendations_for_mood
 
 router = APIRouter()
 
@@ -29,7 +27,9 @@ async def get_music_recommendations(
 ) -> Any:
     target_mood: MoodBase
     if use_current_mood:
-        current_mood_dict = get_current_mood(minutes=30, db=db, current_user=current_user)
+        current_mood_dict = get_current_mood(
+            minutes=30, db=db, current_user=current_user
+        )
         target_mood = MoodBase(**current_mood_dict)
     else:
         if happy is None or sad is None or angry is None or relaxed is None:

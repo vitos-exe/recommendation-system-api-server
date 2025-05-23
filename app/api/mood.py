@@ -1,6 +1,6 @@
+import math
 from datetime import datetime, timedelta
 from typing import Any
-import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -51,7 +51,10 @@ def get_current_mood(
         60, description="Number of minutes to consider for current mood", ge=1, le=1440
     ),
     decay_rate: float = Query(
-        0.05, description="Decay rate for weighting recent moods more. Higher value means faster decay.", ge=0.001, le=1.0
+        0.05,
+        description="Decay rate for weighting recent moods more. Higher value means faster decay.",
+        ge=0.001,
+        le=1.0,
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:4200"
 
+    GENIUS_ACCESS_TOKEN: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings",
     "python-multipart",
     "psycopg2-binary",
+    "lyricsgenius",
 ]
 
 [dependency-groups]
