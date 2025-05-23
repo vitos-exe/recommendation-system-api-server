@@ -29,7 +29,7 @@ async def get_music_recommendations(
 ) -> Any:
     target_mood: MoodBase
     if use_current_mood:
-        current_mood_dict = get_current_mood(days=1, db=db, current_user=current_user)
+        current_mood_dict = get_current_mood(minutes=30, db=db, current_user=current_user)
         target_mood = MoodBase(**current_mood_dict)
     else:
         if happy is None or sad is None or angry is None or relaxed is None:
