@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, mood, recommendations, spotify, users
+from app.api import auth, mood, recommendations, spotify, users
 
 api_router = APIRouter()
 

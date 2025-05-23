@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -10,11 +11,12 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate
-from app.services.jwt import create_access_token, get_password_hash, verify_password
-
-from jose import JWTError, jwt
-from app.services.jwt import ALGORITHM
-
+from app.services.jwt import (
+    ALGORITHM,
+    create_access_token,
+    get_password_hash,
+    verify_password,
+)
 
 router = APIRouter()
 

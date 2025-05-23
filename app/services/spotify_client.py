@@ -1,19 +1,12 @@
+import datetime
 import uuid
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
-import datetime
 
 import httpx
 
 from app.config import settings
 from app.schemas.spotify import SpotifyTrack
-from app.utils.errors import (
-    AuthenticationError,
-    AuthorizationError,
-    ExternalAPIError,
-    NotFoundError,
-    ValidationError,
-)
 
 
 def get_auth_url() -> Dict[str, str]:
@@ -125,7 +118,9 @@ async def get_recently_played_tracks(
             played_at_str = item.get("played_at")
             played_at = None
             if played_at_str:
-                played_at = datetime.datetime.fromisoformat(played_at_str.replace("Z", "+00:00"))
+                played_at = datetime.datetime.fromisoformat(
+                    played_at_str.replace("Z", "+00:00")
+                )
 
             tracks.append(
                 SpotifyTrack(
@@ -151,6 +146,7 @@ async def add_track_to_queue(access_token: str, track_uri: str) -> None:
             headers=headers,
         )
         response.raise_for_status()
+
 
 async def search_track(
     access_token: str, track_name: str, artist_name: str

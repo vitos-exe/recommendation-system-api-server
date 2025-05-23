@@ -5,19 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints.auth import get_current_user
+from app.api.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.schemas.spotify import SpotifyAuth, SpotifyTrack
 from app.schemas.recommendation import RecommendedSong
+from app.schemas.spotify import SpotifyAuth, SpotifyTrack
 from app.services.spotify_client import (
+    add_track_to_queue,
     exchange_code_for_token,
     get_auth_url,
     get_recently_played_tracks,
     refresh_token,
     search_track,
-    add_track_to_queue,
 )
 
 router = APIRouter()
@@ -86,9 +86,7 @@ async def spotify_callback(
 
         db.commit()
     finally:
-        return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/main/home"
-        )
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/main/home")
 
 
 @router.get("/recent-tracks", response_model=List[SpotifyTrack])
@@ -109,7 +107,9 @@ async def get_recent_tracks(
 
     try:
         tracks = await get_recently_played_tracks(
-            access_token=current_user.spotify_access_token, limit=limit, time_limit_minutes=time_limit_minutes
+            access_token=current_user.spotify_access_token,
+            limit=limit,
+            time_limit_minutes=time_limit_minutes,
         )
         return tracks
     except Exception as e:

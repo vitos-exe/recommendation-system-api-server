@@ -1,18 +1,18 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints.auth import get_current_user
+from app.api.auth import get_current_user
 from app.database import get_db
 from app.models.mood_record import MoodRecord
 from app.models.user import User
-from app.schemas.mood import MoodBase, MoodCreate
-from app.schemas.mood import MoodRecord as MoodRecordSchema
+from app.schemas.mood import MoodBase
 from app.schemas.mood import MoodStatistics
 
 router = APIRouter()
+
 
 @router.get("/statistics", response_model=MoodStatistics)
 def get_mood_statistics(
@@ -70,7 +70,9 @@ def get_current_mood(
     )
 
     if not mood_records:
-        raise HTTPException(status_code=404, detail="No mood records found for this period.")
+        raise HTTPException(
+            status_code=404, detail="No mood records found for this period."
+        )
 
     # Calculate current mood vector
     happy_sum = sum(record.happy for record in mood_records)

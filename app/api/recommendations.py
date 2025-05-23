@@ -1,13 +1,14 @@
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints.auth import get_current_user
+from app.api.auth import get_current_user
+from app.api.mood import get_current_mood
 from app.database import get_db
-from app.models.user import User
 from app.models.mood_record import MoodRecord
+from app.models.user import User
 from app.schemas.mood import MoodBase
 from app.schemas.recommendation import RecommendedSong
 from app.services.lyrics_client import get_lyrics_for_song_async
@@ -16,11 +17,8 @@ from app.services.mood_client import (
     predict_mood_from_lyrics,
 )
 from app.services.spotify_client import (
-    add_track_to_queue,
     get_recently_played_tracks,
-    search_track,
 )
-from app.api.v1.endpoints.mood import get_current_mood
 
 router = APIRouter()
 
@@ -80,7 +78,7 @@ async def analyze_recent_tracks(
                     spotify_played_at=track.played_at,  # Store Spotify played_at timestamp
                 )
                 db.add(db_mood_record)
-                
+
     db.commit()
 
 

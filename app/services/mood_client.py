@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 
 import httpx
 
@@ -7,9 +7,7 @@ from app.schemas.mood import MoodBase
 from app.schemas.recommendation import RecommendedSong
 
 
-async def predict_mood_from_lyrics(
-    lyrics: str, artist: str, title: str
-) -> MoodBase:
+async def predict_mood_from_lyrics(lyrics: str, artist: str, title: str) -> MoodBase:
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{settings.AI_API_URL}/",
@@ -17,9 +15,7 @@ async def predict_mood_from_lyrics(
             json={"lyrics": lyrics, "artist": artist, "title": title},
         )
         response.raise_for_status()
-        return MoodBase(
-            **response.json()
-        )
+        return MoodBase(**response.json())
 
 
 async def get_recommendations_for_mood(
