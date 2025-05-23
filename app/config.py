@@ -1,4 +1,6 @@
 from typing import List, Optional, Union
+import logging
+import sys
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +12,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
 
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:4200"]
+
+    LOGGING_LEVEL: str = "INFO"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -42,3 +46,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Logging Configuration
+logger = logging.getLogger("api_server")
+logger.setLevel(settings.LOGGING_LEVEL)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)

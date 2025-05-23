@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.config import logger
 from app.database import get_db
 from app.models.mood_record import MoodRecord
 from app.models.user import User
@@ -23,6 +24,7 @@ def get_mood_statistics(
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get mood statistics for the current user over a period of time"""
+    logger.info(f"Getting mood statistics for user {current_user.id} for the last {days} days.")
     # Calculate date range
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
@@ -38,6 +40,7 @@ def get_mood_statistics(
         .all()
     )
 
+    logger.debug(f"Found {len(mood_records)} mood records for user {current_user.id} between {start_date} and {end_date}.")
     return {
         "start_date": start_date,
         "end_date": end_date,
@@ -60,6 +63,7 @@ def get_current_mood(
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get the current mood for the user based on recent mood records"""
+    logger.info(f"Getting current mood for user {current_user.id} based on records from the last {minutes} minutes with decay {decay_rate}.")
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(minutes=minutes)
 
@@ -81,6 +85,7 @@ def get_current_mood(
     weighted_relaxed_sum = 0.0
     total_weight = 0.0
 
+    logger.debug(f"Found {len(mood_records)} mood records for user {current_user.id} in the last {minutes} minutes.")
     for record in mood_records:
         age_in_minutes = (end_date - record.recorded_at).total_seconds() / 60.0
         weight = math.exp(-decay_rate * age_in_minutes)
@@ -96,7 +101,7 @@ def get_current_mood(
             status_code=404,
             detail="No mood records found in the specified time range",
         )
-
+    logger.info(f"Calculated current mood for user {current_user.id}: happy={weighted_happy_sum / total_weight}, sad={weighted_sad_sum / total_weight}, angry={weighted_angry_sum / total_weight}, relaxed={weighted_relaxed_sum / total_weight}")
     return {
         "happy": weighted_happy_sum / total_weight,
         "sad": weighted_sad_sum / total_weight,
