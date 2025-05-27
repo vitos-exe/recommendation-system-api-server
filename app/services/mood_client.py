@@ -9,18 +9,17 @@ from app.schemas.recommendation import RecommendedSong
 
 async def predict_mood_from_lyrics(lyrics: str, artist: str, title: str) -> MoodBase:
     logger.info(f"Predicting mood for song: '{title}' by '{artist}'")
-    api_url = f"{settings.AI_API_URL}/"
     
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                settings.AI_API_URL,
+                f"{settings.AI_API_URL}/predict",
                 params={"save": "True"},
-                json={"lyrics": lyrics, "artist": artist, "title": title},
+                json=[{"lyrics": lyrics, "artist": artist, "title": title}],
             )
             response.raise_for_status()
             result = response.json()
-            mood = MoodBase(**result)
+            mood = MoodBase(**result[0])
             logger.info(f"Mood prediction successful for '{title}' by '{artist}': happy={mood.happy:.2f}, sad={mood.sad:.2f}, angry={mood.angry:.2f}, relaxed={mood.relaxed:.2f}")
             return mood
     except Exception as e:
@@ -43,7 +42,7 @@ async def get_recommendations_for_mood(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.AI_API_URL}/closest",
+                f"{settings.AI_API_URL}/get-closest",
                 params={"limit": limit},
                 json=mood_dict,
             )

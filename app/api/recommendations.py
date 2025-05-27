@@ -15,7 +15,7 @@ from app.services.mood_client import get_recommendations_for_mood
 router = APIRouter()
 
 
-@router.get("/get-recommendations", response_model=List[RecommendedSong])
+@router.get("", response_model=List[RecommendedSong])
 async def get_music_recommendations(
     limit: int = Query(5, ge=1, le=10),
     use_current_mood: bool = Query(True),

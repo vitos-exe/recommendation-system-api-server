@@ -73,7 +73,7 @@ async def spotify_callback(
         logger.error(f"Error during Spotify token exchange for user {user_id}: {str(e)}")
         raise
     finally:
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/main/home")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/home")
 
 
 @router.get("/recent-tracks", response_model=List[SpotifyTrack])
