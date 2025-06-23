@@ -13,7 +13,7 @@ async def predict_mood_from_lyrics(lyrics: str, artist: str, title: str) -> Mood
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.AI_API_URL}/predict",
+                f"{settings.AI_API_URL}/prediction",
                 params={"save": "True"},
                 json=[{"lyrics": lyrics, "artist": artist, "title": title}],
             )
@@ -42,7 +42,7 @@ async def get_recommendations_for_mood(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.AI_API_URL}/get-closest",
+                f"{settings.AI_API_URL}/closest",
                 params={"limit": limit},
                 json=mood_dict,
             )
